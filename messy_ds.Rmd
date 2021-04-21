@@ -1,0 +1,75 @@
+---
+title: "messy_ds"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(tidyverse)
+library(tidytext)
+library(tokenizers)
+library(dplyr)
+library(plyr)
+library(stringr)
+library(textdata)
+library(ggplot2)
+
+blurbs = read.csv("/Users/ryanharris/Downloads/books_with_blurbs.csv", colClasses = c("NULL", "NULL", "NULL", "NULL", "NULL", NA))
+sample_blurbs <- blurbs[sample(nrow(blurbs), 10000), ]
+```
+
+```{r}
+#
+### WORD PROCESSING
+#
+
+give_words <- function(sample_blurbs){
+  words <- tokenize_words(sample_blurbs)
+}
+blurbs_wlist <- map(sample_blurbs, give_words)
+
+table_words <- function(blurbs_wlist){
+  words_tab <- table(blurbs_wlist)
+  words_tab <- tibble(word = names(words_tab), count = as.numeric(words_tab))
+}
+tab <- map(blurbs_list, table_words)
+
+my_tab <- do.call(rbind, tab)
+concat_tab <- ddply(my_tab, "word", numcolwise(sum))
+ordered_tab <- arrange(concat_tab, desc(count))
+tidy_tab <- ordered_tab %>%
+    anti_join(get_stopwords())
+```
+
+```{r}
+#
+### SENTENCE PROCESSING
+#
+
+give_sentences <- function(sample_blurbs){
+  sentences <- tokenize_sentences(sample_blurbs)
+}
+blurbs_slist <- map(sample_blurbs, give_sentences)
+```
+
+```{r}
+#
+### SENTIMENT ANALYSIS
+#
+
+afinn_sent <- get_sentiments("afinn")  #dbl value
+afinn_sent
+bing_sent <- get_sentiments("bing")   #chr sentiment (pos/neg)
+bing_sent
+nrc_sent <- get_sentiments("nrc")    #chr sentiment (emotions)
+nrc_sent
+ggplot(afinn_sent, aes(word, value)) +
+  geom_col(show.legend = FALSE) +
+  theme(axis.text.x = element_blank(), axis.ticks.x = element_blank())
+```
+
+
+
