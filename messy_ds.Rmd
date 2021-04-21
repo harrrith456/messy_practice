@@ -8,6 +8,10 @@ knitr::opts_chunk$set(echo = TRUE)
 ```
 
 ```{r}
+install.packages("")
+```
+
+```{r}
 library(tidyverse)
 library(tidytext)
 library(tokenizers)
@@ -16,9 +20,23 @@ library(plyr)
 library(stringr)
 library(textdata)
 library(ggplot2)
+library(quanteda)
+library(readtext)
+library(tm)
+library(gofastr)
 
-blurbs = read.csv("/Users/ryanharris/Downloads/books_with_blurbs.csv", colClasses = c("NULL", "NULL", "NULL", "NULL", "NULL", NA))
-sample_blurbs <- blurbs[sample(nrow(blurbs), 10000), ]
+#blurbs = read.csv("/Users/ryanharris/Downloads/books_with_blurbs.csv", colClasses = c("NULL", "NULL", "NULL", "NULL", "NULL", NA))
+#sample_blurbs <- blurbs[sample(nrow(blurbs), 10000), ]
+
+books = read.csv("/Users/ryanharris/Downloads/books_with_blurbs.csv", colClasses = c("NULL", "NULL", NA, NA, NA, NA))
+sample_books <- books[sample(nrow(books), 100), ]
+sample_blurbs <- sample_books$Blurb
+sample_authors <- sample_books$Author
+sample_year <- sample_books$Year
+sample_pub <- sample_books$Publisher
+```
+
+```{r}
 ```
 
 ```{r}
@@ -40,8 +58,15 @@ tab <- map(blurbs_list, table_words)
 my_tab <- do.call(rbind, tab)
 concat_tab <- ddply(my_tab, "word", numcolwise(sum))
 ordered_tab <- arrange(concat_tab, desc(count))
-tidy_tab <- ordered_tab %>%
-    anti_join(get_stopwords())
+tidy_tab <- anti_join(ordered_tab, get_stopwords())
+
+tidy_books <- sample_books %>%
+  unnest_tokens(word, Blurb)
+clean_books <- anti_join(tidy_books, get_stopwords())
+
+corpus <- Corpus(VectorSource(sample_blurbs))
+doc_term_matrix <- TermDocumentMatrix(corpus)
+clean_dtm <- remove_stopwords(doc_term_matrix, stopwords = stopwords("english"))
 ```
 
 ```{r}
@@ -56,19 +81,30 @@ blurbs_slist <- map(sample_blurbs, give_sentences)
 ```
 
 ```{r}
+column_count <- seq(from=1, to=12882, by=1)
+df <- cbind(tidy_books, column_count)
+tidy_publisher <- tidy_books[, 3]
+df
+```
+
+```{r}
 #
 ### SENTIMENT ANALYSIS
 #
 
+tidy_books <- sample_books %>%
+  unnest_tokens(word, Blurb)
+clean_books <- anti_join(tidy_books, get_stopwords())
+
 afinn_sent <- get_sentiments("afinn")  #dbl value
-afinn_sent
 bing_sent <- get_sentiments("bing")   #chr sentiment (pos/neg)
-bing_sent
 nrc_sent <- get_sentiments("nrc")    #chr sentiment (emotions)
-nrc_sent
+
 ggplot(afinn_sent, aes(word, value)) +
   geom_col(show.legend = FALSE) +
   theme(axis.text.x = element_blank(), axis.ticks.x = element_blank())
+
+
 ```
 
 
