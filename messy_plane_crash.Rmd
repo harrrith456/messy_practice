@@ -1,0 +1,95 @@
+---
+title: "messy_ds_2"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r, echo = FALSE, include = FALSE, results = 'hide'}
+library(tidyverse)
+library(broom)
+library(scales)
+library(tm)
+library(wordcloud)
+library(SnowballC)
+library(topicmodels)
+library(FactoMineR)
+library(factoextra)
+library(ggpubr)
+library(sentimentr)
+library(data.table)
+```
+
+```{r, echo = TRUE, warning = FALSE, results = 'hide'}
+### LOAD DATA ###
+crash_data <- read.csv("/Users/ryanharris/Downloads/plane_crash_data.csv")
+books = read.csv("/Users/ryanharris/Downloads/books_with_blurbs.csv", colClasses = c("NULL", "NULL", NA, NA, NA, NA))
+sample_books <- books[sample(nrow(books), 250), ]
+sample_blurbs <- sample_books$Blurb
+
+### WORD PROCESSING ###
+corpus <- Corpus(VectorSource(sample_blurbs))
+#corpus <- Corpus(VectorSource(crash_data$summary))
+clean_corpus = tm_map(corpus, content_transformer(tolower))
+clean_corpus = tm_map(clean_corpus, removeNumbers)
+clean_corpus = tm_map(clean_corpus, removePunctuation)
+clean_corpus = tm_map(clean_corpus, removeWords, c("the", "and", stopwords("english")))
+clean_corpus = tm_map(clean_corpus, stripWhitespace)
+
+dtm <- DocumentTermMatrix(corpus)
+dtm <- removeSparseTerms(dtm, .99)
+dtm <- t(dtm)
+df_dtm <- data.frame(as.matrix(dtm), stringsAsFactors = FALSE)
+```
+
+```{r}
+### PCA ###
+myPCA <- PCA(df_dtm, scale.unit = TRUE, ncp = 5, graph = FALSE)
+eig_val <- get_eigenvalue(myPCA)
+pca_var <- get_pca_var(myPCA)
+head(eig_val, n = 10)
+
+fviz_eig(myPCA, geom = "bar", addlabels = TRUE, ylim = c(0, 45))
+
+fviz_contrib(myPCA, choice = "var", axes = 1, top = 140) +
+  theme(axis.text.x = element_blank(), axis.ticks.x = element_blank())
+fviz_contrib(myPCA, choice = "var", axes = 2, top = 85) +
+  theme(axis.text.x = element_blank(), axis.ticks.x = element_blank())
+
+fviz_pca_var(myPCA, col.var = "cos2", gradient.cols = c("#00AFBB", "#E7B800", "#FC4E07"), repel = TRUE)
+
+res.km <- kmeans(pca_var$coord, centers = 3, nstart = 25)
+grp <- as.factor(res.km$cluster)
+fviz_pca_var(myPCA, col.var = grp, 
+             palette = c("#0073C2FF", "#EFC000FF", "#868686FF"),
+             legend.title = "Cluster")
+```
+
+```{r}
+### SENTIMENT ANALYSIS ###
+sample_year <- sample_books[!(sample_books$Year==0),]
+#mn <- min(sample_year$Year)        ##use these for x axis label
+#mx <- max(sample_year$Year)
+sample_year <- sample_year$Blurb
+sentiment = sentiment_by(sample_year)
+
+plot1 <- ggplot(sentiment) +
+  geom_col(aes(element_id, ave_sentiment), color = "#FF9999")
+plot1.1 <- plot1 + labs(title = "Blurb Sentiment", x = "Blurbs", y = "Sentiment")
+plot1.1
+
+sample_order <- sample_books[order(sample_year), ]
+sample_order_blurbs <- sample_order$Blurb
+year_sentiment = sentiment_by(sample_order_blurbs)
+
+plot2<- ggplot(year_sentiment) +
+  geom_col(aes(element_id, ave_sentiment), color = "#0073C2FF")
+plot2.1 <- plot2 + labs(title = "Blurb Sentiment by Year", x = "Blurbs", y = "Sentiment")
+plot2.1
+
+plot3 <- ggplot()
+```
+
+
