@@ -9,6 +9,7 @@ knitr::opts_chunk$set(echo = TRUE)
 
 ```{r, echo = FALSE, include = FALSE, results = 'hide'}
 library(tidyverse)
+library(tokenizers)
 library(broom)
 library(scales)
 library(tm)
@@ -20,38 +21,42 @@ library(factoextra)
 library(ggpubr)
 library(sentimentr)
 library(data.table)
+library(stats)
+library(graphics)
+library(grDevices)
+library(utils)
+library(methods)
+library(alluvial)
+library(base)
 ```
 
 ```{r, echo = TRUE, warning = FALSE, results = 'hide'}
 ### LOAD DATA ###
-crash_data <- read.csv("/Users/ryanharris/Downloads/plane_crash_data.csv")
 books = read.csv("/Users/ryanharris/Downloads/books_with_blurbs.csv", colClasses = c("NULL", "NULL", NA, NA, NA, NA))
+
+### WORD PROCESSING BLURBS ###
 sample_books <- books[sample(nrow(books), 250), ]
-sample_blurbs <- sample_books$Blurb
-
-### WORD PROCESSING ###
-corpus <- Corpus(VectorSource(sample_blurbs))
-#corpus <- Corpus(VectorSource(crash_data$summary))
-clean_corpus = tm_map(corpus, content_transformer(tolower))
-clean_corpus = tm_map(clean_corpus, removeNumbers)
-clean_corpus = tm_map(clean_corpus, removePunctuation)
-clean_corpus = tm_map(clean_corpus, removeWords, c("the", "and", stopwords("english")))
-clean_corpus = tm_map(clean_corpus, stripWhitespace)
-
-dtm <- DocumentTermMatrix(corpus)
-dtm <- removeSparseTerms(dtm, .99)
-dtm <- t(dtm)
-df_dtm <- data.frame(as.matrix(dtm), stringsAsFactors = FALSE)
+ sample_blurbs <- sample_books$Blurb
+ corpus <- Corpus(VectorSource(sample_blurbs))
+ clean_corpus = tm_map(corpus, content_transformer(tolower))
+ clean_corpus = tm_map(clean_corpus, removeNumbers)
+ clean_corpus = tm_map(clean_corpus, removePunctuation)
+ clean_corpus = tm_map(clean_corpus, removeWords, c("the", "and", stopwords("english")))
+ clean_corpus = tm_map(clean_corpus, stripWhitespace)
+ dtm <- DocumentTermMatrix(corpus)
+ dtm <- removeSparseTerms(dtm, .99)
+ dtm <- t(dtm)
+ df_dtm <- data.frame(as.matrix(dtm), stringsAsFactors = FALSE)
 ```
 
-```{r}
+```{r, warning = FALSE}
 ### PCA ###
 myPCA <- PCA(df_dtm, scale.unit = TRUE, ncp = 5, graph = FALSE)
 eig_val <- get_eigenvalue(myPCA)
 pca_var <- get_pca_var(myPCA)
 head(eig_val, n = 10)
 
-fviz_eig(myPCA, geom = "bar", addlabels = TRUE, ylim = c(0, 45))
+fviz_eig(myPCA, geom = "bar", addlabels = TRUE, ylim = c(0, 55))
 
 fviz_contrib(myPCA, choice = "var", axes = 1, top = 140) +
   theme(axis.text.x = element_blank(), axis.ticks.x = element_blank())
@@ -70,8 +75,6 @@ fviz_pca_var(myPCA, col.var = grp,
 ```{r}
 ### SENTIMENT ANALYSIS ###
 sample_year <- sample_books[!(sample_books$Year==0),]
-#mn <- min(sample_year$Year)        ##use these for x axis label
-#mx <- max(sample_year$Year)
 sample_year <- sample_year$Blurb
 sentiment = sentiment_by(sample_year)
 
@@ -88,8 +91,30 @@ plot2<- ggplot(year_sentiment) +
   geom_col(aes(element_id, ave_sentiment), color = "#0073C2FF")
 plot2.1 <- plot2 + labs(title = "Blurb Sentiment by Year", x = "Blurbs", y = "Sentiment")
 plot2.1
-
-plot3 <- ggplot()
 ```
 
+```{r}
+start <- c("A", "B", "C", "D", "E")
+middle <- c("Lecture1", "Lecture2")
+end <- c("A", "B", "C", "D", "E")
 
+start <- sample(start, 40, replace=TRUE)
+middle <- sample(middle, 40, replace = TRUE)
+end <- sample(end, 40, replace=TRUE)
+
+start_data <- data.frame(start)
+middle_data <- data.frame(middle)
+end_data <- data.frame(end)
+final_data <- cbind(start_data, middle_data, end_data)
+
+freq_data <- setDT(final_data)[,rep(.N,.N),.(start, middle, end)]
+
+alluvial(freq_data[,1:3], freq=freq_data$V1)
+alluvial(freq_data[,1:3], freq=freq_data$V1, col = c("pink", "lightgreen", "lightskyblue", "orange", "grey"), alpha = 0.7, blocks = FALSE)
+
+alluvial(freq_data[,1:3], freq=freq_data$V1, col = c("pink", "lightgreen", "lightskyblue", "orange", "grey"), alpha = 0.7, blocks = FALSE, hide = freq_data$V1 < 2)
+
+alluvial(freq_data[,1:3], freq=freq_data$V1, col = ifelse( freq_data$end == "E", "lightgreen", "lightskyblue"))
+
+alluvial(freq_data[,1:3], freq=freq_data$V1, col = ifelse(freq_data$middle == "Lecture1", "pink", "lightskyblue"), blocks = FALSE)
+```
